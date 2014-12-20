@@ -12,6 +12,18 @@ import com.renren.api.service.User;
 
 public class RenrenSniper {
 	@SuppressWarnings("unused")
+	//private static String API_ID = "473940";
+	//private static String API_KEY = "c8365eab24da467d9350b9bad06c539d";
+	//private static String SECRET_KEY = "2260d56f31864bb990374763518eca84";
+	
+	//private static String API_ID = "473945";
+	//private static String API_KEY = "b6a36844842c4574aa53013d0aae4be8";
+	//private static String SECRET_KEY = "485c0cb3f1e44060b9ec40baa7585088";
+	
+	//private static String API_ID = "473945";
+	//private static String API_KEY = "c0235196345a470bbcb9294a2f5bcbcd";
+	//private static String SECRET_KEY = "dc3acbee826943889683bf2273c5ee15";
+	
 	private static String API_ID = "473945";
 	private static String API_KEY = "c0235196345a470bbcb9294a2f5bcbcd";
 	private static String SECRET_KEY = "dc3acbee826943889683bf2273c5ee15";
