@@ -106,6 +106,7 @@ public class DBProcesser {
     	String cypherToSELECT;
     	int max = 0;
     	ArrayList<UserInfo> maxDegreeNodes = new ArrayList<>();
+    	ArrayList<Node> suggestedFriends = new ArrayList<>();
     	try (Transaction ignored = graphDb.beginTx()) {
     		cypherToSELECT = "match (n) return n";
     		result = engine.execute(cypherToSELECT);
@@ -130,6 +131,7 @@ public class DBProcesser {
             for ( Node node : IteratorUtil.asIterable( n_column ) )
             {
             	if (node.getDegree() == max) {
+            		suggestedFriends.add(node);
             		UserInfo u = new UserInfo();
             		u.setUserid(Long.parseLong((String)node.getProperty(PRIMARY_KEY)));
             		u.setUsername((String)node.getProperty("username"));
@@ -239,6 +241,7 @@ public class DBProcesser {
     }
     
     public void shortestPath(long uid1, long uid2) {
+    	ArrayList<Path> friendshipBuildingPath = new ArrayList<>();
     	try ( Transaction tx = graphDb.beginTx() )
         {
     		Node node1 = getNodeByIndex(String.valueOf(uid1));
@@ -258,6 +261,7 @@ public class DBProcesser {
 		        while (t.hasNext()) {
 		        	
 		        	path = t.next();
+		        	friendshipBuildingPath.add(path);
 		        	System.out.println("A path is: " + String.valueOf(path.length()));
 		        	nodeIterator = path.nodes().iterator();
 		        	while (nodeIterator.hasNext()) {

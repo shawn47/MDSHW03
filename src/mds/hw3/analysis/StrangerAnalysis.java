@@ -1,40 +1,57 @@
 package mds.hw3.analysis;
 import java.util.ArrayList;
 
+import com.renren.api.AuthorizationException;
 import com.renren.api.RennException;
 
 import mds.hw3.common.UserInfo;
 import mds.hw3.db.*;
 import mds.hw3.renren.*;
 public class StrangerAnalysis {
-	private static long suid, tuid;
-	private static int count = 0;
-
 	public static DBProcesser dbprocesser = new DBProcesser();
 	public static RenrenSniper rrsniper = new RenrenSniper();
+	private static long suid, tuid;
+	private static int count = 0;
+	private static UserInfo uInfo, tInfo;
+	public static ArrayList<UserInfo> usersInfo;
+	public static ArrayList<UserInfo> tusersInfo;
+	
+	public void initialize() {
+		try {
+			rrsniper.authentication();
+		} catch (AuthorizationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		dbprocesser.startDb();
+		//graphDBcreate(uInfo, usersInfo, 0);
+	}
 
 	public static void main(String[] args) throws RennException, InterruptedException {
 
 		rrsniper.authentication();
 		suid = 313620754;
-		UserInfo uInfo = new UserInfo();
+		uInfo = new UserInfo();
 		uInfo = rrsniper.getUserInfo(suid);
-		ArrayList<UserInfo> usersInfo = new ArrayList<>();
-		//usersInfo = rrsniper.getFriendList(suid);
+		usersInfo = new ArrayList<>();
+		usersInfo = rrsniper.getFriendList(suid);
 		tuid = 220929689;
-		UserInfo tInfo = new UserInfo();
+		tInfo = new UserInfo();
 		tInfo = rrsniper.getUserInfo(tuid);
-		ArrayList<UserInfo> tusersInfo = new ArrayList<>();
+		tusersInfo = new ArrayList<>();
 		tusersInfo = rrsniper.getFriendList(tuid);
 		
 		dbprocesser.startDb();
-//		dbprocesser.getPath(uInfo, tInfo);
+		// 社交重叠度
+		float overlap = dbprocesser.friendsOverlapCalculator(usersInfo.size(), tusersInfo);
+		// 好友推荐
 		ArrayList<UserInfo> suggestedFriends = dbprocesser.friendsSuggest(uInfo);
 		System.out.println("the following are the friends we've suggested for you:");
 		for (int i = 0; i < suggestedFriends.size(); i++) {
 			System.out.println("user name: " + suggestedFriends.get(i).getUsername() + "\t" + "userid: " + String.valueOf(suggestedFriends.get(i).getUserid()) + ".");
 			
 		}
+		// 好友建立路径
 		if (dbprocesser.hasRels(uInfo, tInfo)) {
 			System.out.println("user " + String.valueOf(uInfo.getUserid()) + " is a friend of user " + String.valueOf(tInfo.getUserid()) + ".");
 		}
@@ -42,8 +59,6 @@ public class StrangerAnalysis {
 			dbprocesser.createDb(tInfo, tusersInfo);
 			dbprocesser.shortestPath(uInfo.getUserid(), tInfo.getUserid());
 		}
-		
-		//dbprocesser.cypherQuery();
 		
 //		graphDBcreate(uInfo, usersInfo, 0);
 		dbprocesser.deleteTargetUser(tInfo, tusersInfo);
