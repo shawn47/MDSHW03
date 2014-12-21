@@ -3,6 +3,7 @@ package mds.hw3.db;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.Map;
 
 import mds.hw3.common.UserInfo;
 
@@ -22,6 +23,7 @@ import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.factory.GraphDatabaseFactory;
 import org.neo4j.graphdb.index.Index;
+import org.neo4j.helpers.collection.IteratorUtil;
 
 
 public class DBProcesser {
@@ -36,7 +38,6 @@ public class DBProcesser {
     }
     
     public void startDb() {
-        //String storeDir = TargetDirectory.forTest( PathFindingDocTest.class ).makeGraphDbDir().getAbsolutePath();
         //deleteFileOrDirectory(new File(PATH_DB));
         graphDb = new GraphDatabaseFactory().newEmbeddedDatabase(PATH_DB);
         try ( Transaction tx = graphDb.beginTx() ) {
@@ -57,10 +58,8 @@ public class DBProcesser {
     }
     
     public void getPath(UserInfo u1, UserInfo u2) {
-    	//Node n1 = nodeIndex.get(PRIMARY_KEY, String.valueOf(u1.getUserid())).getSingle();
-    	//Node n2 = nodeIndex.get(PRIMARY_KEY, String.valueOf(u2.getUserid())).getSingle();
     	if (hasRels(u1, u2)){
-    		System.out.println("u1 u2 has rels");
+    		System.out.println("u1 is a friend of u2");
     	}
     	else {
     		shortestPath(u1.getUserid(), u2.getUserid());
@@ -90,7 +89,6 @@ public class DBProcesser {
     			
     		}
     		tx.success();
-    		//return (int) rootNode.getProperty("level");
     	}
     }
     
@@ -102,7 +100,48 @@ public class DBProcesser {
         }
     }
     
- // find using index
+    public ArrayList<UserInfo> friendsSuggest(UserInfo uinfo) {
+    	ExecutionEngine engine = new ExecutionEngine(graphDb);
+    	ExecutionResult result;
+    	String cypherToSELECT;
+    	int max = 0;
+    	ArrayList<UserInfo> maxDegreeNodes = new ArrayList<>();
+    	try (Transaction ignored = graphDb.beginTx()) {
+    		cypherToSELECT = "match (n) return n";
+    		result = engine.execute(cypherToSELECT);
+    		
+    		Iterator<Node> n_column = result.columnAs("n");
+            for ( Node node : IteratorUtil.asIterable( n_column ) )
+            {
+            	System.out.println("name: " + node.getProperty("username") + "\t degree: " + node.getDegree());
+            	UserInfo utmp = new UserInfo();
+            	utmp.setUserid(Long.parseLong((String)node.getProperty(PRIMARY_KEY)));
+            	utmp.setUsername((String)node.getProperty("username"));
+            	
+            	if (!(hasRels2(uinfo, utmp)) && (uinfo.getUserid() != utmp.getUserid())) {
+            		if (node.getDegree() >= max) {
+            			max = node.getDegree();
+            			//maxDegreeNodes.add(node);
+            		}
+            	}
+            }
+            result = engine.execute(cypherToSELECT);
+    		n_column = result.columnAs("n");
+            for ( Node node : IteratorUtil.asIterable( n_column ) )
+            {
+            	if (node.getDegree() == max) {
+            		UserInfo u = new UserInfo();
+            		u.setUserid(Long.parseLong((String)node.getProperty(PRIMARY_KEY)));
+            		u.setUsername((String)node.getProperty("username"));
+            		maxDegreeNodes.add(u);
+            	}
+            }
+    		ignored.success();
+    		return maxDegreeNodes;
+    	}
+    }
+    
+ // find using label
     public Node findNodeUsingIndex(String userid) {
     	Label label = DynamicLabel.label( "USER" );
         int idToFind = Integer.parseInt(userid);
@@ -143,6 +182,16 @@ public class DBProcesser {
     	}
     }
     
+    public boolean hasRels2(UserInfo uinfo1, UserInfo uinfo2) {
+    	int length = getShortestPathLength(uinfo1.getUserid(), uinfo2.getUserid());
+    	if (length == 1) {
+    		return true;
+    	}
+    	else {
+    		return false;
+    	}
+    }
+    
     public float friendsOverlapCalculator(int myFriendsNum, ArrayList<UserInfo> usersInfo) {
     	try (Transaction tx = graphDb.beginTx()) {
 	    	int overLapCount = 0;
@@ -159,18 +208,69 @@ public class DBProcesser {
     	}
     }
     
+    public int getShortestPathLength(long uid1, long uid2) {
+    	try ( Transaction tx = graphDb.beginTx() )
+        {
+    		Node node1 = getNodeByIndex(String.valueOf(uid1));
+    		Node node2 = getNodeByIndex(String.valueOf(uid2));
+	        PathFinder<Path> finder = GraphAlgoFactory.shortestPath(
+	            PathExpanders.forTypeAndDirection(RelTypes.KNOWS, Direction.BOTH ), 15);
+	        Iterable<Path> paths = finder.findAllPaths( node1, node2 );
+	        int minLength = 100;
+	        if (paths == null) {
+	        	String message = "no path from "+ node1.getProperty("username")+" to "+node2.getProperty("username") + "!";
+	        	System.out.println(message);
+	        }
+	        else {
+	        	Path path;
+		        Iterator<Path> t = paths.iterator();
+		        Iterator<Node> nodeIterator;
+		        Node node;
+		        while (t.hasNext()) {
+		        	path = t.next();
+		        	if (path.length() < minLength)
+		        		minLength = path.length();
+		        }
+	        }
+	        
+	        tx.success();
+	        return minLength;
+        }
+    }
+    
     public void shortestPath(long uid1, long uid2) {
     	try ( Transaction tx = graphDb.beginTx() )
         {
     		Node node1 = getNodeByIndex(String.valueOf(uid1));
     		Node node2 = getNodeByIndex(String.valueOf(uid2));
 	        PathFinder<Path> finder = GraphAlgoFactory.shortestPath(
-	            PathExpanders.forTypeAndDirection(RelTypes.KNOWS, Direction.OUTGOING ), 15 );
+	            PathExpanders.forTypeAndDirection(RelTypes.KNOWS, Direction.BOTH ), 15);
 	        Iterable<Path> paths = finder.findAllPaths( node1, node2 );
-	        // END SNIPPET: shortestPathUsage
-	        Path path = paths.iterator().next();
-	        Iterator<Node> iterator = path.nodes().iterator();
-	        iterator.next();
+	        if (paths == null) {
+	        	String message = "no path from "+ node1.getProperty("username")+" to "+node2.getProperty("username") + "!";
+	        	System.out.println(message);
+	        }
+	        else {
+	        	Path path;
+		        Iterator<Path> t = paths.iterator();
+		        Iterator<Node> nodeIterator;
+		        Node node;
+		        while (t.hasNext()) {
+		        	
+		        	path = t.next();
+		        	System.out.println("A path is: " + String.valueOf(path.length()));
+		        	nodeIterator = path.nodes().iterator();
+		        	while (nodeIterator.hasNext()) {
+		        		node = nodeIterator.next();
+		        		if (node.getId() != path.endNode().getId()) {
+		        			System.out.print(node.getProperty("username") + "=>");
+		        		}
+		        		else {
+		        			System.out.println(node.getProperty("username") + ".");
+		        		}
+		        	}
+		        }
+	        }
 	        
 	        tx.success();
         }
@@ -181,13 +281,56 @@ public class DBProcesser {
         return n;
     }
     
+    public void deleteTargetUser(UserInfo uinfo, ArrayList<UserInfo> usinfo) {
+    	ExecutionEngine engine = new ExecutionEngine(graphDb);
+    	ExecutionResult result;
+    	String cypherToDelete;
+    	
+    	try (Transaction ignored = graphDb.beginTx()) {
+    		cypherToDelete = "START n=node(*) MATCH n-[rel:" + RelTypes.KNOWS + "]->r WHERE n.userid='" + String.valueOf(uinfo.getUserid()) + "' DELETE rel";
+    		result = engine.execute(cypherToDelete);
+    		long edge = 86;
+    		Node node1 = getNodeByIndex(String.valueOf(uinfo.getUserid()));
+    		for (int i = 0; i < usinfo.size(); i++) {
+    			Node node2 = getNodeByIndex(String.valueOf(usinfo.get(i).getUserid()));
+    			if (node2 != null) {
+    				//if (uinfo.getUserid() < usinfo.get(i).getUserid()) {
+        			//System.out.println(node1.getId() + "\t" + node2.getId());
+        			if (edge < node2.getId()) {
+        				cypherToDelete = "START n=node(*) MATCH n WHERE n.userid='" + String.valueOf(usinfo.get(i).getUserid()) + "' DELETE n";
+        				result = engine.execute(cypherToDelete);
+        			}
+    			}
+    		}
+    		cypherToDelete = "START n=node(*) MATCH n WHERE n.userid='" + String.valueOf(uinfo.getUserid()) + "' DELETE n";
+    		result = engine.execute(cypherToDelete);
+    		/**
+    		cypherToDelete = "START n=node(*) MATCH n WHERE n.userid='3146' DELETE n";
+			result = engine.execute(cypherToDelete);
+			cypherToDelete = "START n=node(*) MATCH n WHERE n.userid='3854' DELETE n";
+			result = engine.execute(cypherToDelete);
+			cypherToDelete = "START n=node(*) MATCH n WHERE n.userid='4466' DELETE n";
+			result = engine.execute(cypherToDelete);
+    		*/
+    		ignored.success();
+    	}
+    }
+    
     public void cypherQuery() {
     	ExecutionEngine engine = new ExecutionEngine(graphDb);
 
     	ExecutionResult result;
+    	int cnt = 0;
     	try (Transaction ignored = graphDb.beginTx()) {
     		result = engine.execute( "match (n) return n" );
-    		System.out.println(result.iterator().next());
+    		Node n;
+    		while (result.iterator().next() != null) {
+    			cnt++;
+    			if (cnt == 23) {
+    				
+    			}
+    		}
+    		System.out.println(cnt);
     		ignored.success();
     	}
     }

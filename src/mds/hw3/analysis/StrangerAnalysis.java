@@ -20,17 +20,33 @@ public class StrangerAnalysis {
 		UserInfo uInfo = new UserInfo();
 		uInfo = rrsniper.getUserInfo(suid);
 		ArrayList<UserInfo> usersInfo = new ArrayList<>();
-//		usersInfo = rrsniper.getFriendList(suid);
-		tuid = 4136;
+		//usersInfo = rrsniper.getFriendList(suid);
+		tuid = 220929689;
 		UserInfo tInfo = new UserInfo();
 		tInfo = rrsniper.getUserInfo(tuid);
+		ArrayList<UserInfo> tusersInfo = new ArrayList<>();
+		tusersInfo = rrsniper.getFriendList(tuid);
 		
 		dbprocesser.startDb();
 //		dbprocesser.getPath(uInfo, tInfo);
-//		dbprocesser.cypherQuery();
+		ArrayList<UserInfo> suggestedFriends = dbprocesser.friendsSuggest(uInfo);
+		System.out.println("the following are the friends we've suggested for you:");
+		for (int i = 0; i < suggestedFriends.size(); i++) {
+			System.out.println("user name: " + suggestedFriends.get(i).getUsername() + "\t" + "userid: " + String.valueOf(suggestedFriends.get(i).getUserid()) + ".");
+			
+		}
+		if (dbprocesser.hasRels(uInfo, tInfo)) {
+			System.out.println("user " + String.valueOf(uInfo.getUserid()) + " is a friend of user " + String.valueOf(tInfo.getUserid()) + ".");
+		}
+		else {
+			dbprocesser.createDb(tInfo, tusersInfo);
+			dbprocesser.shortestPath(uInfo.getUserid(), tInfo.getUserid());
+		}
 		
-		graphDBcreate(uInfo, usersInfo, 0);
-//		
+		//dbprocesser.cypherQuery();
+		
+//		graphDBcreate(uInfo, usersInfo, 0);
+		dbprocesser.deleteTargetUser(tInfo, tusersInfo);
 		dbprocesser.shutdownDb();
 	}
 	

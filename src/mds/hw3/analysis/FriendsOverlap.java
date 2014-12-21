@@ -24,15 +24,25 @@ public class FriendsOverlap {
 		UserInfo myInfo = new UserInfo();
 		myInfo = rrsniper.getUserInfo(myuid);
 		ArrayList<UserInfo> myFriendsUsersInfo = new ArrayList<>();
-		myFriendsUsersInfo = rrsniper.getFriendList(myuid);
+		try {
+			myFriendsUsersInfo = rrsniper.getFriendList(myuid);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		UserInfo targetInfo = new UserInfo();
 		targetInfo = rrsniper.getUserInfo(targetuid);
 		ArrayList<UserInfo> targetFriendsUsersInfo = new ArrayList<>();
-		targetFriendsUsersInfo = rrsniper.getFriendList(targetuid);
+		try {
+			targetFriendsUsersInfo = rrsniper.getFriendList(targetuid);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		dbprocesser.startDb();
-		dbprocesser.createDb(myInfo, myFriendsUsersInfo);
+		//dbprocesser.createDb(myInfo, myFriendsUsersInfo);
 		
 		if (dbprocesser.hasRels(myInfo, targetInfo)) {
 			System.out.println("220929689 is your friend!");
